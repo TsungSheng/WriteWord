@@ -20,7 +20,7 @@ import java.util.concurrent.*;
 public class MainActivity extends Activity {
     private final ExecutorService worker=Executors.newSingleThreadExecutor();
     private PracticeView board; private TextView title,status,progress,details,otherReadings; private EditText input;
-    private StrokeOverviewView overview; private LinearLayout overviewPanel; private ScrollView overviewScroll;
+    private StrokeOverviewView overview; private LinearLayout overviewPanel; private HorizontalScrollView overviewScroll;
     private StrokeNames names; private boolean overviewVisible; private Button overviewButton;
     private CharacterInfo characterInfo;
     private String current="永"; private int request=0; private TextToSpeech speech; private boolean speechReady,foreground;
@@ -48,17 +48,18 @@ public class MainActivity extends Activity {
         otherReadings=text("",14);otherReadings.setTextColor(green);otherReadings.setVisibility(View.GONE);root.addView(otherReadings);
         progress=text("載入中…",14);progress.setGravity(17);root.addView(progress);
         names=new StrokeNames(this);characterInfo=new CharacterInfo(this);
-        LinearLayout practiceArea=new LinearLayout(this);
-        board=new PracticeView(this);practiceArea.addView(board,new LinearLayout.LayoutParams(0,-1,1));
-        overviewPanel=new LinearLayout(this);overviewPanel.setOrientation(1);
-        Button closeOverview=button("全筆順 ×",v->setOverview(false));closeOverview.setContentDescription("隱藏全筆順");overviewPanel.addView(closeOverview,new LinearLayout.LayoutParams(-1,-2));
-        overviewScroll=new ScrollView(this);overview=new StrokeOverviewView(this);overview.setContentDescription("全筆順累積字形，依序顯示每一筆");overviewScroll.addView(overview,new ScrollView.LayoutParams(-1,-2));
-        overviewPanel.addView(overviewScroll,new LinearLayout.LayoutParams(-1,0,1));
-        practiceArea.addView(overviewPanel,new LinearLayout.LayoutParams(Math.round(96*getResources().getDisplayMetrics().density),-1));
+        LinearLayout practiceArea=new LinearLayout(this);practiceArea.setOrientation(LinearLayout.VERTICAL);
+        board=new PracticeView(this);practiceArea.addView(board,new LinearLayout.LayoutParams(-1,0,1));
+        overviewPanel=new LinearLayout(this);overviewPanel.setGravity(Gravity.CENTER_VERTICAL);
+        overviewScroll=new HorizontalScrollView(this);overviewScroll.setFillViewport(true);
+        overview=new StrokeOverviewView(this);overview.setContentDescription("全筆順累積字形，由左至右顯示，左右滑動查看");overviewScroll.addView(overview,new HorizontalScrollView.LayoutParams(-2,-1));
+        overviewPanel.addView(overviewScroll,new LinearLayout.LayoutParams(0,dp(104),1));
+        Button closeOverview=button("×",v->setOverview(false));closeOverview.setContentDescription("隱藏全筆順");overviewPanel.addView(closeOverview,new LinearLayout.LayoutParams(dp(48),dp(48)));
+        practiceArea.addView(overviewPanel,new LinearLayout.LayoutParams(-1,-2));
         overviewPanel.setVisibility(View.GONE);root.addView(practiceArea,new LinearLayout.LayoutParams(-1,0,1));
         status=text("",16);status.setGravity(17);root.addView(status);
         board.listener=(done,total,message)->{progress.setText(total==0?"準備練習":"已完成 "+done+" / "+total+" 筆");status.setText(message);overview.setProgress(done);
-            if(overviewVisible) overviewScroll.post(()->overviewScroll.smoothScrollTo(0,Math.max(0,Math.round((done-2)*108*getResources().getDisplayMetrics().density))));};
+            if(overviewVisible) overviewScroll.post(()->overviewScroll.smoothScrollTo(Math.max(0,overview.getCellWidth()*(done-2)),0));};
         board.strokeListener=(number,name,demo)->{
             speak(name==null?"第"+number+"筆":name,TextToSpeech.QUEUE_ADD);
             if(number==board.getStrokeCount())speak(current,TextToSpeech.QUEUE_ADD);
