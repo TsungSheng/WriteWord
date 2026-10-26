@@ -69,7 +69,11 @@ public class MainActivity extends Activity {
         LinearLayout nav=new LinearLayout(this);nav.setGravity(17);nav.addView(button("☆ 收藏",v->favorite()));nav.addView(button("收藏字",v->favorites()));nav.addView(button("教育部",v->startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://stroke-order.learningweb.moe.edu.tw/")))));root.addView(nav);
         overviewButton=button("全筆順",v->setOverview(!overviewVisible));nav.addView(overviewButton);
         setOverview(state==null?getPreferences(0).getBoolean("overview",false):state.getBoolean("overview",false));
-        TextView source=text("字形：Make Me a Hanzi／Arphic · 名稱：cnchar\n部分字形筆順與教育部標準不同 · 點此查看說明",11);source.setGravity(17);source.setOnClickListener(v->about());root.addView(source);
+        Button info=button("說明",v->about());info.setContentDescription("資料來源與使用說明");nav.addView(info);
+        for(int i=0;i<nav.getChildCount();i++){
+            View item=nav.getChildAt(i);item.setPadding(dp(4),item.getPaddingTop(),dp(4),item.getPaddingBottom());
+            item.setLayoutParams(new LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1));
+        }
         speech=new TextToSpeech(this,s->{if(s==TextToSpeech.SUCCESS){int r=speech.setLanguage(Locale.TAIWAN);speechReady=r>=0;}});
         current=state==null?"永":state.getString("character","永");input.setText(current);load(current);
     }
