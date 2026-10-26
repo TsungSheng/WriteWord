@@ -14,4 +14,4 @@ for (const [char, strokes] of Object.entries(names)) {
   assert.ok(strokes.length && strokes.every(name => typeof name === 'string' && name.length));
   assert.ok(strokes.every(name => !/[横竖钩点弯卧2]/.test(name)), `Unconverted label: ${char}`);
 }
-console.log(`All 10 bundled glyphs have matching name counts; validated ${Object.keys(names).length} dictionary entries.`);
+console.log(`All ${fs.readdirSync(path.join(root, 'data')).length} bundled glyphs have matching name counts; validated ${Object.keys(names).length} dictionary entries.`);

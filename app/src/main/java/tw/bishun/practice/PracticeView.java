@@ -13,6 +13,7 @@ public class PracticeView extends View {
     private final ArrayList<float[][]> medians=new ArrayList<>();
     private final ArrayList<float[]> gesture=new ArrayList<>();
     private String[] strokeNames=new String[0];
+    private String pronunciation="";
     public interface StrokeListener { void onStroke(int number,String name,boolean demonstration); }
     public StrokeListener strokeListener;
     private int done=0, generation=0; private boolean hint=true, demo=false;
@@ -35,6 +36,8 @@ public class PracticeView extends View {
     }
     public List<Path> getStrokes(){return Collections.unmodifiableList(strokes);}
     public String[] getStrokeNames(){return strokeNames.clone();}
+    public int getStrokeCount(){return strokes.size();}
+    public void setPronunciation(String value){pronunciation=value==null?"":value;invalidate();}
     public void clear() { reset(); strokes.clear(); medians.clear(); strokeNames=new String[0]; invalidate(); }
     public void reset() { generation++; demo=false; done=0; gesture.clear(); report("重新開始，慢慢寫就好"); invalidate(); }
     public void toggleHint() { hint=!hint; invalidate(); }
@@ -50,7 +53,11 @@ public class PracticeView extends View {
         },1400);
     }
     @Override protected void onDraw(Canvas c) {
-        super.onDraw(c); side=Math.min(getWidth(),getHeight())-24; left=(getWidth()-side)/2; top=(getHeight()-side)/2;
+        super.onDraw(c);
+        float density=getResources().getDisplayMetrics().density;
+        float gutter=pronunciation.isEmpty()?0:48*density;
+        side=Math.max(0,Math.min(getWidth()-gutter,getHeight())-16*density);
+        left=(getWidth()-side-gutter)/2; top=(getHeight()-side)/2;
         paint.setStyle(Paint.Style.FILL); paint.setColor(Color.WHITE); c.drawRect(left,top,left+side,top+side,paint);
         paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1); paint.setColor(0xffcfd9d3); c.drawRect(left,top,left+side,top+side,paint);
         paint.setPathEffect(new DashPathEffect(new float[]{12,10},0));
@@ -68,6 +75,18 @@ public class PracticeView extends View {
         }
         if(!gesture.isEmpty()) {paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(18);paint.setColor(0xff294e40);Path p=new Path();p.moveTo(gesture.get(0)[0],gesture.get(0)[1]);for(float[] pt:gesture)p.lineTo(pt[0],pt[1]);c.drawPath(p,paint);}
         c.restore();
+        if(!pronunciation.isEmpty() && side>0){
+            String symbols=pronunciation.replaceAll("[ˊˇˋ˙]","");
+            String tone=pronunciation.contains("ˊ")?"ˊ":pronunciation.contains("ˇ")?"ˇ":pronunciation.contains("ˋ")?"ˋ":pronunciation.contains("˙")?"˙":"";
+            float textSize=Math.min(22*getResources().getDisplayMetrics().scaledDensity,side/5);
+            float step=textSize*1.35f,x=left+side+gutter*.43f;
+            float first=top+side/2-(symbols.length()-1)*step/2;
+            paint.setStyle(Paint.Style.FILL);paint.setTextAlign(Paint.Align.CENTER);paint.setTextSize(textSize);paint.setColor(0xff16765b);
+            float baselineOffset=-(paint.ascent()+paint.descent())/2;
+            for(int i=0;i<symbols.length();i++)c.drawText(symbols.substring(i,i+1),x,first+i*step+baselineOffset,paint);
+            if(!tone.isEmpty())c.drawText(tone,tone.equals("˙")?x:x+textSize*.8f,tone.equals("˙")?first-step*.7f+baselineOffset:top+side/2+baselineOffset,paint);
+            paint.setTextAlign(Paint.Align.LEFT);
+        }
     }
     private float[] point(MotionEvent e) {return new float[]{(e.getX()-left)*1024/side,900-(e.getY()-top)*1024/side};}
     @Override public boolean onTouchEvent(MotionEvent e) {

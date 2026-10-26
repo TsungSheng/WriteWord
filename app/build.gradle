@@ -1,4 +1,9 @@
 plugins { id 'com.android.application' }
+// Optional local output directory for Windows projects inside synced folders.
+def externalBuildRoot = providers.gradleProperty('writeOrderBuildRoot')
+if (externalBuildRoot.isPresent()) {
+    layout.buildDirectory = file(externalBuildRoot.get())
+}
 def releaseSigningFile = rootProject.file('signing.properties')
 def releaseSigning = new Properties()
 if (releaseSigningFile.exists()) {
@@ -7,7 +12,7 @@ if (releaseSigningFile.exists()) {
 android {
     namespace 'tw.bishun.practice'
     compileSdk 35
-    defaultConfig { applicationId 'tw.bishun.practice'; minSdk 26; targetSdk 35; versionCode 2; versionName '0.2.0' }
+    defaultConfig { applicationId 'tw.bishun.practice'; minSdk 26; targetSdk 35; versionCode 4; versionName '0.3.0' }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     signingConfigs {
         release {

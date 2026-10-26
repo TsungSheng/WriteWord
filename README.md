@@ -4,6 +4,10 @@
 
 ## 已實作
 
+**v0.3.0**：移除頂部標語與「逐筆練習」標題，輸入列直接置頂；保留高密度手機的輸入高度修正，鍵盤搜尋鍵可直接開始，開始後收起鍵盤。大字右側直排主要注音，其他讀音於上方換行列出；新增部首與總筆畫（依實際練習字形計數）。寫完整個字後，在最後一筆名稱語音之後自動朗讀國字，示範結束也會朗讀。App 圖示改為綠底白色「陳」，並內附「陳」字離線資料，共 11 字。
+
+v0.2.1 修正高密度手機的輸入欄文字被裁切：移除原本固定 56 實體像素的高度，改成隨內容調整並至少 56dp，增加標題與輸入列間距，統一以 dp 處理根容器留白。使用與 v0.2.0 release 相同的簽署金鑰，可直接覆蓋更新。
+
 - 輸入最多 20 個國字並選字練習（不會自動把簡體轉成正體）。
 - 起點圓點、方向箭頭、筆畫提示、進度與錯誤回饋。
 - 依序檢查起終點、路徑形狀、方向與長度；通過後顯示完整筆畫。
@@ -22,13 +26,15 @@
 
 PowerShell debug 建置：`./build.ps1`；release 建置：`./build.ps1 -Release`；單元測試：`./build.ps1 -Test`。
 
+若專案位於 OneDrive 或中文路徑造成檔案鎖定／測試載入問題，可指定不在同步資料夾內、全英文的建置目錄：`./build.ps1 -Release -BuildDirectory C:/AndroidBuild/WriteOrder`。該次產物會輸出至指定目錄的 `outputs/apk/release/WriteOrder.apk`，原始碼仍留在專案。Gradle 對應參數為 `-PwriteOrderBuildRoot=...`。
+
 APK 固定輸出名稱為 `WriteOrder.apk`，依建置類型分別位於 `app/build/outputs/apk/debug/WriteOrder.apk` 與 `app/build/outputs/apk/release/WriteOrder.apk`。GitHub Actions 亦提供測試與 debug APK 建置工作流；需自行將專案推送至 GitHub 才會執行。
 
 新版 APK 可直接覆蓋安裝舊版，不必先移除 App，可保留收藏及快取（需使用相同 debug 簽章）。
 
 ## Release 簽署
 
-已產出 v0.2.0 已簽署的 release APK，`debuggable=false`，使用獨立 RSA 3072 位元金鑰，已通過 `apksigner verify` 與 Gradle release 必要 lint 檢查。Release 保留既有 App 功能，目前未開啟程式碼縮減。
+已產出 v0.3.0 已簽署的 release APK，`debuggable=false`，沿用 v0.2.0 的獨立 RSA 3072 位元金鑰，已通過 `apksigner verify` 與 Gradle release 必要 lint 檢查，可直接覆蓋先前 release 版。Release 保留既有 App 功能，目前未開啟程式碼縮減。
 
 本機金鑰：`.signing/WriteOrder-release.p12`；對應密碼與別名設定：`signing.properties`。**請將兩者一起安全備份**，未來版本須持續使用相同金鑰才能覆蓋更新。這些檔案已排除於 Git，請勿將它們推送至 GitHub。其他電腦建置時，應還原這兩個檔案；`signing.properties.example` 提供格式參考。
 
@@ -48,6 +54,10 @@ v0.2.0 的筆畫名稱使用 **cnchar / cnchar-order / cnchar-trad 3.2.6**（MIT
 
 `scripts/generate-stroke-names.cjs` 為匯出腳本（使用 `.tools/cnchar` 下三個 npm 套件的 package 資料夾）；`stroke-name-overrides.json` 記錄人工修訂。`node scripts/check-stroke-names.cjs` 可檢查字典結構與十個內附字的名稱數量。
 
+v0.3.0 的離線注音／部首字典 `character-info.json` 含 9,572 字，來自 cnchar / cnchar-trad / cnchar-radical 3.2.6（同 MIT 授權）。`scripts/zhuyin.cjs` 執行拼音至注音及聲調轉換，`scripts/generate-character-info.cjs` 產生字典與原生 vector 圖示；另人工修訂「髮」讀音／部首、「陳」部首及「黃」部首。圖示直接使用「陳」字原始筆畫路徑，完整字形資料同時附於 assets/data，原字形資料未修改。
+
+注音和部首是參考資料，未以臺灣教育部辭典逐字校對，部分讀音可能不同，也可能缺少異讀。語音採手機中文引擎的預設讀音，不保證與多音字畫面中的第一個注音一致；尚無指定異讀的語音選擇功能。字典未收錄時顯示「尚未收錄」，不猜測注音。可用 `node scripts/check-character-info.cjs` 檢查轉換規則、字典及範例字覆蓋。
+
 **本版不能宣稱符合教育部標準筆順。** 開放資料含正體字，但部分字形和順序與台灣教育部標準不同；尚未進行逐字校對。正式教育產品若以教育部標準為驗收條件，仍需取得適當資料授權並替換資料層。
 
 首次下載其他字時使用 jsDelivr HTTPS，該字會送往 CDN；手寫軌跡不會上傳。無帳號、廣告或分析 SDK。收藏和快取只保存在 App 本機儲存空間，移除 App 後清除。
@@ -57,6 +67,8 @@ v0.2.0 的筆畫名稱使用 **cnchar / cnchar-order / cnchar-trad 3.2.6**（MIT
 2026-10-26 已在 Windows 本機以 Java 17、Gradle 8.9、Android SDK Platform 35 成功執行 debug 與 release 建置。本機 SDK 路徑為 `E:/Android_SDK`，記錄於不納入版本控制的 `local.properties`。`build.ps1` 會優先使用 `.tools/jdk17` 內的 Java 17；Android Studio 內附的 Java 25 不適用於目前 Gradle 版本，IDE 的 Gradle JDK 請選 Java 17。
 
 已檢查十個內附資料檔的筆畫／中線結構。v0.2.0 已成功編譯；八個 StrokeMatcher／StrokeNames 測試以 JUnitCore 直接執行全部通過，並通過名稱字典檢查。Gradle 的 `testDebugUnitTest` 在本機中文路徑仍有 `ClassNotFoundException` 載入問題，尚未修正；不代表該 Gradle 測試任務已通過。使用者已於舊版確認手機中文朗讀可用，v0.2.0 的逐筆語音與面板尚待實機驗證。
+
+v0.3.0 已在非同步、全英文的建置目錄成功執行 Gradle `testDebugUnitTest`（8 項測試全部通過）與 `assembleRelease`，排除原本中文輸出路徑的類別載入問題；另通過 22 項注音轉換案例、9,572 字元資料結構及全部 11 個內附字的資料覆蓋檢查。新版 UI、注音位置、圖示與完成語音仍待手機實測。
 
 判定為幾何容差比對，不是完整的手寫辨識；目前無壓感、掌觸排除、筆畫中途旋轉續寫、逐筆語音教學或已完成學習紀錄頁。示範為逐筆顯示，尚未沿單筆路徑漸進播放。
 

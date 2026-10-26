@@ -1,4 +1,4 @@
-param([switch]$Test, [switch]$Release)
+param([switch]$Test, [switch]$Release, [string]$BuildDirectory)
 $ErrorActionPreference = 'Stop'
 if ($Test -and $Release) { throw 'Use either -Test or -Release.' }
 $gradleVersion = '8.9'
@@ -18,8 +18,8 @@ if (!(Test-Path $gradleExecutable)) {
 }
 Push-Location $PSScriptRoot
 try {
-    if ($Test) { & $gradleExecutable testDebugUnitTest }
-    elseif ($Release) { & $gradleExecutable assembleRelease }
-    else { & $gradleExecutable assembleDebug }
+    $gradleArguments = @($(if ($Test) { 'testDebugUnitTest' } elseif ($Release) { 'assembleRelease' } else { 'assembleDebug' }))
+    if ($BuildDirectory) { $gradleArguments += "-PwriteOrderBuildRoot=$([System.IO.Path]::GetFullPath($BuildDirectory))" }
+    & $gradleExecutable @gradleArguments
     if ($LASTEXITCODE -ne 0) { throw "Gradle failed: $LASTEXITCODE" }
 } finally { Pop-Location }
