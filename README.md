@@ -1,5 +1,7 @@
 # 筆順王 · Android
 
+目前正式版本：**1.0.0**（versionCode 8）。Release APK 檔名固定為 `WriteOrder.apk`，沿用原 release 簽署金鑰，可直接覆蓋先前 release 版。
+
 原生 Java / Android Canvas 的正體國字筆順練習 App。介面依參考圖採淡色底、綠色主色、字形輪廓與十字格；支援觸控筆與手指逐筆描寫。
 
 ## 已實作
