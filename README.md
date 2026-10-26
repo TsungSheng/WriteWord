@@ -20,11 +20,21 @@
 3. 若 IDE 要求 Gradle 路徑，先於 PowerShell 執行 `./build.ps1`；腳本會下載 Gradle 8.9 並驗證官方 SHA256。亦可自行安裝 Gradle 8.9。
 4. 設定 `ANDROID_HOME`，或讓 Android Studio 產生 `local.properties`（`sdk.dir`）。連接 Android 8.0 以上手機／平板，按 Run。
 
-PowerShell 建置：`./build.ps1`；單元測試：`./build.ps1 -Test`。
+PowerShell debug 建置：`./build.ps1`；release 建置：`./build.ps1 -Release`；單元測試：`./build.ps1 -Test`。
 
-APK 路徑：`app/build/outputs/apk/debug/app-debug.apk`。GitHub Actions 亦提供測試與 debug APK 建置工作流；需自行將專案推送至 GitHub 才會執行。
+APK 固定輸出名稱為 `WriteOrder.apk`，依建置類型分別位於 `app/build/outputs/apk/debug/WriteOrder.apk` 與 `app/build/outputs/apk/release/WriteOrder.apk`。GitHub Actions 亦提供測試與 debug APK 建置工作流；需自行將專案推送至 GitHub 才會執行。
 
 新版 APK 可直接覆蓋安裝舊版，不必先移除 App，可保留收藏及快取（需使用相同 debug 簽章）。
+
+## Release 簽署
+
+已產出 v0.2.0 已簽署的 release APK，`debuggable=false`，使用獨立 RSA 3072 位元金鑰，已通過 `apksigner verify` 與 Gradle release 必要 lint 檢查。Release 保留既有 App 功能，目前未開啟程式碼縮減。
+
+本機金鑰：`.signing/WriteOrder-release.p12`；對應密碼與別名設定：`signing.properties`。**請將兩者一起安全備份**，未來版本須持續使用相同金鑰才能覆蓋更新。這些檔案已排除於 Git，請勿將它們推送至 GitHub。其他電腦建置時，應還原這兩個檔案；`signing.properties.example` 提供格式參考。
+
+`setup-release-signing.ps1` 只用於全新專案首次產生金鑰；偵測到既有金鑰或設定檔時會停止，避免更換原有簽章。金鑰密碼為安全亂數產生，腳本不顯示密碼。未提供 release 簽署設定時，release 建置會明確停止，不會交付未簽署 APK。
+
+Release 與先前的 debug APK 簽章不同，無法直接覆蓋安裝；在同一手機改裝 release 時須先移除舊 debug 版，移除會清除本機收藏與快取。後續以相同 release 金鑰簽署的新版可正常更新。
 
 ## 資料與授權
 
@@ -44,7 +54,7 @@ v0.2.0 的筆畫名稱使用 **cnchar / cnchar-order / cnchar-trad 3.2.6**（MIT
 
 ## 驗證狀態與限制
 
-2026-10-26 已在 Windows 本機以 Java 17、Gradle 8.9、Android SDK Platform 35 成功執行 `assembleDebug`，產出 `app/build/outputs/apk/debug/app-debug.apk`。本機 SDK 路徑為 `E:/Android_SDK`，記錄於不納入版本控制的 `local.properties`。`build.ps1` 會優先使用 `.tools/jdk17` 內的 Java 17；Android Studio 內附的 Java 25 不適用於目前 Gradle 版本，IDE 的 Gradle JDK 請選 Java 17。
+2026-10-26 已在 Windows 本機以 Java 17、Gradle 8.9、Android SDK Platform 35 成功執行 debug 與 release 建置。本機 SDK 路徑為 `E:/Android_SDK`，記錄於不納入版本控制的 `local.properties`。`build.ps1` 會優先使用 `.tools/jdk17` 內的 Java 17；Android Studio 內附的 Java 25 不適用於目前 Gradle 版本，IDE 的 Gradle JDK 請選 Java 17。
 
 已檢查十個內附資料檔的筆畫／中線結構。v0.2.0 已成功編譯；八個 StrokeMatcher／StrokeNames 測試以 JUnitCore 直接執行全部通過，並通過名稱字典檢查。Gradle 的 `testDebugUnitTest` 在本機中文路徑仍有 `ClassNotFoundException` 載入問題，尚未修正；不代表該 Gradle 測試任務已通過。使用者已於舊版確認手機中文朗讀可用，v0.2.0 的逐筆語音與面板尚待實機驗證。
 

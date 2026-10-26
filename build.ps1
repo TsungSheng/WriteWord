@@ -1,5 +1,6 @@
-param([switch]$Test)
+param([switch]$Test, [switch]$Release)
 $ErrorActionPreference = 'Stop'
+if ($Test -and $Release) { throw 'Use either -Test or -Release.' }
 $gradleVersion = '8.9'
 $toolsDirectory = Join-Path $PSScriptRoot '.tools'
 $localJdk = Get-ChildItem (Join-Path $toolsDirectory 'jdk17') -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -17,6 +18,8 @@ if (!(Test-Path $gradleExecutable)) {
 }
 Push-Location $PSScriptRoot
 try {
-    if ($Test) { & $gradleExecutable testDebugUnitTest } else { & $gradleExecutable assembleDebug }
+    if ($Test) { & $gradleExecutable testDebugUnitTest }
+    elseif ($Release) { & $gradleExecutable assembleRelease }
+    else { & $gradleExecutable assembleDebug }
     if ($LASTEXITCODE -ne 0) { throw "Gradle failed: $LASTEXITCODE" }
 } finally { Pop-Location }

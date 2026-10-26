@@ -1,8 +1,39 @@
 plugins { id 'com.android.application' }
+def releaseSigningFile = rootProject.file('signing.properties')
+def releaseSigning = new Properties()
+if (releaseSigningFile.exists()) {
+    releaseSigningFile.withInputStream { releaseSigning.load(it) }
+}
 android {
     namespace 'tw.bishun.practice'
     compileSdk 35
     defaultConfig { applicationId 'tw.bishun.practice'; minSdk 26; targetSdk 35; versionCode 2; versionName '0.2.0' }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    signingConfigs {
+        release {
+            if (releaseSigningFile.exists()) {
+                storeFile rootProject.file(releaseSigning.getProperty('storeFile'))
+                storePassword releaseSigning.getProperty('storePassword')
+                keyAlias releaseSigning.getProperty('keyAlias')
+                keyPassword releaseSigning.getProperty('keyPassword')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            debuggable false
+            signingConfig signingConfigs.release
+        }
+    }
+    applicationVariants.all { variant ->
+        variant.outputs.all { outputFileName = 'WriteOrder.apk' }
+    }
+}
+tasks.matching { it.name == 'preReleaseBuild' }.configureEach {
+    doFirst {
+        if (!releaseSigningFile.exists()) {
+            throw new GradleException('Release signing is missing. Run setup-release-signing.ps1 or provide signing.properties.')
+        }
+    }
 }
 dependencies { implementation 'androidx.core:core:1.15.0'; testImplementation 'junit:junit:4.13.2' }

@@ -4,3 +4,8 @@ local.properties
 **/build/
 .idea/
 *.iml
+.signing/
+signing.properties
+*.jks
+*.keystore
+*.p12

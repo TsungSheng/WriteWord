@@ -1,0 +1,6 @@
+# Copy to signing.properties and supply your existing release key settings,
+# or use setup-release-signing.ps1 once to generate a new local key.
+storeFile=.signing/WriteOrder-release.p12
+storePassword=REPLACE_WITH_YOUR_STORE_PASSWORD
+keyAlias=writeorder
+keyPassword=REPLACE_WITH_YOUR_KEY_PASSWORD
