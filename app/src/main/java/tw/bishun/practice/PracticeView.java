@@ -12,12 +12,15 @@ public class PracticeView extends View {
     private final ArrayList<Path> strokes=new ArrayList<>();
     private final ArrayList<float[][]> medians=new ArrayList<>();
     private final ArrayList<float[]> gesture=new ArrayList<>();
+    private String[] strokeNames=new String[0];
+    public interface StrokeListener { void onStroke(int number,String name,boolean demonstration); }
+    public StrokeListener strokeListener;
     private int done=0, generation=0; private boolean hint=true, demo=false;
     private float side, left, top;
     public interface Listener { void update(int done,int total,String message); }
     public Listener listener;
     public PracticeView(Context c) { super(c); setContentDescription("國字筆順練習區，沿著提示逐筆書寫"); setLayerType(View.LAYER_TYPE_SOFTWARE,null); }
-    public void load(JSONObject data) throws JSONException {
+    public void load(JSONObject data,String[] names) throws JSONException {
         reset(); strokes.clear(); medians.clear();
         JSONArray paths=data.getJSONArray("strokes"), points=data.getJSONArray("medians");
         for(int i=0;i<paths.length();i++) {
@@ -26,9 +29,13 @@ public class PracticeView extends View {
             for(int j=0;j<line.length();j++) { p[j][0]=(float)line.getJSONArray(j).getDouble(0); p[j][1]=(float)line.getJSONArray(j).getDouble(1); }
             medians.add(p);
         }
+        strokeNames=new String[strokes.size()];
+        for(int i=0;i<strokeNames.length;i++) strokeNames[i]=StrokeNames.resolve(i<names.length?names[i]:null,medians.get(i));
         report("沿著起點，寫下第一筆"); invalidate();
     }
-    public void clear() { reset(); strokes.clear(); medians.clear(); invalidate(); }
+    public List<Path> getStrokes(){return Collections.unmodifiableList(strokes);}
+    public String[] getStrokeNames(){return strokeNames.clone();}
+    public void clear() { reset(); strokes.clear(); medians.clear(); strokeNames=new String[0]; invalidate(); }
     public void reset() { generation++; demo=false; done=0; gesture.clear(); report("重新開始，慢慢寫就好"); invalidate(); }
     public void toggleHint() { hint=!hint; invalidate(); }
     private void report(String s) { if(listener!=null) listener.update(done,strokes.size(),s); }
@@ -37,8 +44,10 @@ public class PracticeView extends View {
     }
     private void play(int token) {
         postDelayed(()-> { if(token!=generation) return; done++; invalidate();
+            String name=strokeNames[done-1];report("示範第 "+done+" 筆"+(name==null?"":"："+name));
+            if(strokeListener!=null) strokeListener.onStroke(done,name,true);
             if(done<strokes.size()) play(token); else postDelayed(()-> {if(token==generation) reset();},900);
-        },650);
+        },1400);
     }
     @Override protected void onDraw(Canvas c) {
         super.onDraw(c); side=Math.min(getWidth(),getHeight())-24; left=(getWidth()-side)/2; top=(getHeight()-side)/2;
@@ -68,7 +77,12 @@ public class PracticeView extends View {
             case MotionEvent.ACTION_MOVE: gesture.add(point(e));break;
             case MotionEvent.ACTION_UP:
                 gesture.add(point(e)); boolean ok=StrokeMatcher.matches(gesture.toArray(new float[0][]),medians.get(done));
-                if(ok) done++; gesture.clear();report(ok?(done==strokes.size()?"寫得很好！完成這個字了 🎉":"很好！繼續下一筆"):"再試一次：注意起點、方向和筆畫長度"); performClick();getParent().requestDisallowInterceptTouchEvent(false);break;
+                if(ok) done++;
+                gesture.clear();
+                String name=ok?strokeNames[done-1]:null;
+                report(ok?("第 "+done+" 筆"+(name==null?"":"："+name)+(done==strokes.size()?"。完成了！ 🎉":"，很好！")):"再試一次：注意起點、方向和筆畫長度");
+                if(ok && strokeListener!=null) strokeListener.onStroke(done,name,false);
+                performClick();getParent().requestDisallowInterceptTouchEvent(false);break;
             case MotionEvent.ACTION_CANCEL: gesture.clear();getParent().requestDisallowInterceptTouchEvent(false);break;
         }
         invalidate();return true;
