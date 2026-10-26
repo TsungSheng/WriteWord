@@ -36,7 +36,9 @@ APK 路徑：`app/build/outputs/apk/debug/app-debug.apk`。GitHub Actions 亦提
 
 ## 驗證狀態與限制
 
-已檢查內附十個資料檔的筆畫／中線結構，並提供方向、錯誤形狀、點擊與不均勻採樣的 StrokeMatcher 單元測試。開發環境未找到 JDK 或 Android SDK，**尚未執行 Android 編譯、JUnit、模擬器與實機 UI 測試，也尚未產出 APK**。
+2026-10-26 已在 Windows 本機以 Java 17、Gradle 8.9、Android SDK Platform 35 成功執行 `assembleDebug`，產出 `app/build/outputs/apk/debug/app-debug.apk`。本機 SDK 路徑為 `E:/Android_SDK`，記錄於不納入版本控制的 `local.properties`。`build.ps1` 會優先使用 `.tools/jdk17` 內的 Java 17；Android Studio 內附的 Java 25 不適用於目前 Gradle 版本，IDE 的 Gradle JDK 請選 Java 17。
+
+已檢查十個內附資料檔的筆畫／中線結構。四個 StrokeMatcher 測試以 JUnitCore 直接執行全部通過（方向、錯誤形狀、點擊、不均勻採樣）。Gradle 的 `testDebugUnitTest` 在本機中文路徑仍有 `ClassNotFoundException` 載入問題，尚未修正；不代表該 Gradle 測試任務已通過。尚未執行模擬器與實機 UI 測試。
 
 判定為幾何容差比對，不是完整的手寫辨識；目前無壓感、掌觸排除、筆畫中途旋轉續寫、逐筆語音教學或已完成學習紀錄頁。示範為逐筆顯示，尚未沿單筆路徑漸進播放。
 

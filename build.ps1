@@ -2,6 +2,10 @@ param([switch]$Test)
 $ErrorActionPreference = 'Stop'
 $gradleVersion = '8.9'
 $toolsDirectory = Join-Path $PSScriptRoot '.tools'
+$localJdk = Get-ChildItem (Join-Path $toolsDirectory 'jdk17') -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($localJdk -and (Test-Path (Join-Path $localJdk.FullName 'bin/java.exe'))) {
+    $env:JAVA_HOME = $localJdk.FullName
+}
 $gradleExecutable = Join-Path $toolsDirectory "gradle-$gradleVersion/bin/gradle.bat"
 if (!(Test-Path $gradleExecutable)) {
     New-Item -ItemType Directory -Force $toolsDirectory | Out-Null
