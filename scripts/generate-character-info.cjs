@@ -3,7 +3,7 @@ const {zhuyin}=require('./zhuyin.cjs');
 const root=path.resolve(__dirname,'..');
 const c=require(path.join(root,'.tools/cnchar/cnchar/package'));
 c.use(require(path.join(root,'.tools/cnchar/cnchar-trad/package')),require(path.join(root,'.tools/cnchar/cnchar-radical/package')));
-const overrides={'髮':{radical:'髟',pinyin:['fà']},'陳':{radical:'阜（阝）'},'黃':{radical:'黃'}};
+const overrides={'髮':{radical:'髟',pinyin:['fà']},'陳':{radical:'阜（阝）'},'黃':{radical:'黃'},'瓊':{radical:'玉（王）'}};
 const dict={};let missing=0;
 for(let cp=0x3400;cp<=0x9fff;cp++){
  const char=String.fromCodePoint(cp);let pinyin=[],radical='';

@@ -4,6 +4,10 @@ const path = require('node:path');
 const root = path.join(__dirname, '../app/src/main/assets');
 const names = JSON.parse(fs.readFileSync(path.join(root, 'stroke-names.json'), 'utf8'));
 assert.deepEqual(names['永'], ['點', '橫折鉤', '橫撇|橫鉤', '撇', '捺']);
+// Regression: upstream names have 18 strokes, but the active 瓊 glyph has 19.
+// Its lower-right 攵 includes a horizontal stroke at position 17.
+assert.equal(names['瓊'].length,19);
+assert.deepEqual(names['瓊'].slice(15),['撇','橫','橫撇','捺']);
 for (const file of fs.readdirSync(path.join(root, 'data'))) {
   const char = path.basename(file, '.json');
   const data = JSON.parse(fs.readFileSync(path.join(root, 'data', file), 'utf8'));

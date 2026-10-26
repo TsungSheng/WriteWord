@@ -11,6 +11,7 @@ assert.deepEqual(dict['陳'],{readings:['ㄔㄣˊ'],radical:'阜（阝）'});
 assert.deepEqual(dict['重'].readings,['ㄓㄨㄥˋ','ㄔㄨㄥˊ']);
 assert.ok(dict['行'].readings.includes('ㄏㄤˊ'));
 assert.deepEqual(dict['髮'],{readings:['ㄈㄚˋ'],radical:'髟'});
+assert.deepEqual(dict['瓊'],{readings:['ㄑㄩㄥˊ'],radical:'玉（王）'});
 for(const filename of fs.readdirSync(path.join(root,'data'))){const char=path.basename(filename,'.json');assert.ok(dict[char]?.readings.length,`Missing reading for ${char}`);assert.ok(dict[char].radical,`Missing radical for ${char}`);}
 for(const entry of Object.values(dict))for(const reading of entry.readings)assert.match(reading,/^[\u3105-\u312fˊˇˋ˙]+$/);
 console.log(`${Object.keys(cases).length} phonetic conversion cases passed; checked ${Object.keys(dict).length} metadata records and bundled glyph coverage.`);
