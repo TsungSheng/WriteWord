@@ -3,9 +3,11 @@ package tw.bishun.practice;
 import android.app.*;
 import android.os.*;
 import android.content.*;
-import android.graphics.Color;
+import android.content.res.ColorStateList;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
 import android.view.*;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
@@ -23,17 +25,24 @@ public class MainActivity extends Activity {
     private StrokeOverviewView overview; private LinearLayout overviewPanel; private HorizontalScrollView overviewScroll;
     private StrokeNames names; private boolean overviewVisible; private Button overviewButton;
     private CharacterInfo characterInfo;
+    private final PracticeSession session=new PracticeSession();
+    private final Handler handler=new Handler(Looper.getMainLooper());
+    private Runnable advanceTask;
+    private String completionId;
+    private long completionSerial;
     private String current="永"; private int request=0; private TextToSpeech speech; private boolean speechReady,foreground;
-    private final int green=0xff16765b;
+    private final int green=AppColors.ACCENT;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE|WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
-        getWindow().setStatusBarColor(0xfff6f8f3);getWindow().setNavigationBarColor(0xfff6f8f3);
-        LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setPadding(dp(12),dp(8),dp(12),dp(8));root.setBackgroundColor(0xfff6f8f3);
+        getWindow().setStatusBarColor(AppColors.BACKGROUND);getWindow().setNavigationBarColor(AppColors.BACKGROUND);
+        LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setPadding(dp(12),dp(8),dp(12),dp(8));root.setBackgroundColor(AppColors.BACKGROUND);
         root.setOnApplyWindowInsetsListener((v,insets)->{v.setPadding(dp(12),insets.getSystemWindowInsetTop()+dp(8),dp(12),insets.getSystemWindowInsetBottom()+dp(8));return insets;});
         setContentView(root);
         LinearLayout search=new LinearLayout(this);search.setGravity(Gravity.CENTER_VERTICAL);search.setBaselineAligned(false);search.setPadding(0,dp(8),0,dp(4));
-        input=new EditText(this);input.setSingleLine();input.setHint("輸入正體國字，例如：學習");input.setContentDescription("輸入要練習的國字");input.setText("永");input.setTextSize(18);
+        input=new EditText(this);input.setSingleLine();input.setHint("輸入國字或詞語，最多20字");input.setContentDescription("輸入要依序練習的國字或詞語，最多20字");input.setText("永");input.setTextSize(18);
+        input.setTextColor(AppColors.TEXT);input.setHintTextColor(AppColors.MUTED);
+        GradientDrawable inputBackground=new GradientDrawable();inputBackground.setColor(AppColors.SURFACE);inputBackground.setCornerRadius(dp(10));inputBackground.setStroke(dp(1),AppColors.BORDER);input.setBackground(inputBackground);
         // Let the text and font padding determine height, with a density-aware
         // minimum. A fixed 56 physical pixels clipped text on high-density phones.
         input.setMinHeight(dp(56));input.setGravity(Gravity.CENTER_VERTICAL);input.setPadding(dp(12),dp(8),dp(12),dp(8));
@@ -58,33 +67,69 @@ public class MainActivity extends Activity {
         practiceArea.addView(overviewPanel,new LinearLayout.LayoutParams(-1,-2));
         overviewPanel.setVisibility(View.GONE);root.addView(practiceArea,new LinearLayout.LayoutParams(-1,0,1));
         status=text("",16);status.setGravity(17);root.addView(status);
-        board.listener=(done,total,message)->{progress.setText(total==0?"準備練習":"已完成 "+done+" / "+total+" 筆");status.setText(message);overview.setProgress(done);
+        board.listener=(done,total,message)->{progress.setText(wordProgress()+(total==0?"準備練習":"已完成 "+done+" / "+total+" 筆"));status.setText(message);overview.setProgress(done);
             if(overviewVisible) overviewScroll.post(()->overviewScroll.smoothScrollTo(Math.max(0,overview.getCellWidth()*(done-2)),0));};
         board.strokeListener=(number,name,demo)->{
             speak(name==null?"第"+number+"筆":name,TextToSpeech.QUEUE_ADD);
-            if(number==board.getStrokeCount())speak(current,TextToSpeech.QUEUE_ADD);
+            if(number==board.getStrokeCount()){
+                if(demo)speak(current,TextToSpeech.QUEUE_ADD);
+                else completeCharacter();
+            }
         };
         LinearLayout tools=new LinearLayout(this);tools.setGravity(17);
-        tools.addView(button("重寫",v->{stopSpeech();board.reset();}));tools.addView(button("示範",v->{stopSpeech();board.demonstrate();}));tools.addView(button("提示",v->board.toggleHint()));tools.addView(button("朗讀",v->{if(speechReady)speak(current,TextToSpeech.QUEUE_FLUSH);else Toast.makeText(this,"尚無可用的中文語音",0).show();}));root.addView(tools);
+        overviewButton=button("全筆順",v->setOverview(!overviewVisible));tools.addView(overviewButton);
+        tools.addView(button("重寫",v->{restartCurrent();board.reset();}));tools.addView(button("示範",v->{restartCurrent();board.demonstrate();}));tools.addView(button("提示",v->board.toggleHint()));tools.addView(button("朗讀",v->readCurrent()));root.addView(tools);
         LinearLayout nav=new LinearLayout(this);nav.setGravity(17);nav.addView(button("☆ 收藏",v->favorite()));nav.addView(button("收藏字",v->favorites()));nav.addView(button("教育部",v->startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://stroke-order.learningweb.moe.edu.tw/")))));root.addView(nav);
-        overviewButton=button("全筆順",v->setOverview(!overviewVisible));nav.addView(overviewButton);
         setOverview(state==null?getPreferences(0).getBoolean("overview",false):state.getBoolean("overview",false));
         Button info=button("說明",v->about());info.setContentDescription("資料來源與使用說明");nav.addView(info);
-        for(int i=0;i<nav.getChildCount();i++){
-            View item=nav.getChildAt(i);item.setPadding(dp(4),item.getPaddingTop(),dp(4),item.getPaddingBottom());
-            item.setLayoutParams(new LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1));
-        }
+        distributeButtons(tools);distributeButtons(nav);
         speech=new TextToSpeech(this,s->{if(s==TextToSpeech.SUCCESS){int r=speech.setLanguage(Locale.TAIWAN);speechReady=r>=0;}});
-        current=state==null?"永":state.getString("character","永");input.setText(current);load(current);
+        speech.setOnUtteranceProgressListener(new UtteranceProgressListener(){
+            @Override public void onStart(String id){}
+            @Override public void onDone(String id){handler.post(()->{if(!isDestroyed())scheduleAdvance(id,700);});}
+            @Override public void onError(String id){handler.post(()->{if(!isDestroyed())scheduleAdvance(id,1000);});}
+        });
+        if(state==null)session.start("永");else session.restore(state.getString("sessionText",state.getString("character","永")),state.getInt("sessionIndex",0));
+        input.setText(state==null?session.text():state.getString("inputText",session.text()));load(session.current());
     }
     private int dp(float value){return Math.round(value*getResources().getDisplayMetrics().density);}
-    private TextView text(String s,int size){TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(0xff33453b);t.setPadding(0,5,0,5);return t;}
-    private Button button(String s,View.OnClickListener l){Button b=new Button(this);b.setText(s);b.setTextSize(14);b.setMinWidth(0);b.setMinimumWidth(0);b.setTextColor(green);b.setOnClickListener(l);return b;}
-    private void search(){String value=input.getText().toString().trim();ArrayList<String> chars=new ArrayList<>();value.codePoints().filter(cp->Character.UnicodeScript.of(cp)==Character.UnicodeScript.HAN).limit(20).forEach(cp->chars.add(new String(Character.toChars(cp))));if(chars.isEmpty()){Toast.makeText(this,"請輸入國字",0).show();return;}
+    private TextView text(String s,int size){TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(AppColors.TEXT);t.setPadding(0,5,0,5);return t;}
+    private Button button(String s,View.OnClickListener l){Button b=new Button(this);b.setText(s);b.setTextSize(14);b.setAllCaps(false);b.setMinWidth(0);b.setMinimumWidth(0);b.setMinHeight(dp(48));b.setTextColor(green);b.setBackgroundTintList(new ColorStateList(new int[][]{new int[]{android.R.attr.state_pressed},new int[]{}},new int[]{AppColors.SELECTED,AppColors.BUTTON}));b.setOnClickListener(l);return b;}
+    private void distributeButtons(LinearLayout row){for(int i=0;i<row.getChildCount();i++){View item=row.getChildAt(i);item.setPadding(dp(3),item.getPaddingTop(),dp(3),item.getPaddingBottom());item.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));}}
+    private String wordProgress(){return session.size()>1?"第 "+(session.position()+1)+" / "+session.size()+" 字 · ":"";}
+    private void search(){String value=input.getText().toString().trim();if(!session.start(value)){Toast.makeText(this,"請輸入國字",0).show();return;}
         InputMethodManager keyboard=(InputMethodManager)getSystemService(INPUT_METHOD_SERVICE);if(keyboard!=null)keyboard.hideSoftInputFromWindow(input.getWindowToken(),0);input.clearFocus();
-        if(chars.size()==1)load(chars.get(0));else new AlertDialog.Builder(this).setTitle("選擇要練習的字").setItems(chars.toArray(new String[0]),(d,n)->load(chars.get(n))).show();}
-    private void speak(String text,int queue){if(foreground && speechReady && speech!=null)speech.speak(text,queue,null,"speech-"+System.nanoTime());}
+        load(session.current());}
+    private int speakWithId(String text,int queue,String id){return foreground&&speechReady&&speech!=null?speech.speak(text,queue,null,id):TextToSpeech.ERROR;}
+    private void speak(String text,int queue){speakWithId(text,queue,"speech-"+System.nanoTime());}
     private void stopSpeech(){if(speech!=null)speech.stop();}
+    private void readCurrent(){
+        if(!speechReady){Toast.makeText(this,"尚無可用的中文語音",0).show();return;}
+        if(!session.isComplete()){speak(current,TextToSpeech.QUEUE_FLUSH);return;}
+        completionId="complete-"+(++completionSerial);
+        int result=speakWithId(current,TextToSpeech.QUEUE_FLUSH,completionId);
+        scheduleAdvance(completionId,result==TextToSpeech.SUCCESS?15000:1200);
+    }
+    private void cancelAdvance(){if(advanceTask!=null)handler.removeCallbacks(advanceTask);advanceTask=null;completionId=null;}
+    private void restartCurrent(){cancelAdvance();stopSpeech();session.restartCurrent();}
+    private void completeCharacter(){
+        if(!session.completeCurrent())return;
+        completionId="complete-"+(++completionSerial);
+        int result=speakWithId(current,TextToSpeech.QUEUE_ADD,completionId);
+        // A broken or unavailable voice engine must not trap a completed session.
+        scheduleAdvance(completionId,result==TextToSpeech.SUCCESS?15000:1200);
+    }
+    private void scheduleAdvance(String id,long delay){
+        if(id==null||!id.equals(completionId)||!session.isComplete()||!foreground)return;
+        if(advanceTask!=null)handler.removeCallbacks(advanceTask);
+        advanceTask=()->{
+            if(!id.equals(completionId)||!foreground||isDestroyed()||!session.isComplete())return;
+            completionId=null;advanceTask=null;
+            if(session.advance())load(session.current());
+            else status.setText(session.size()>1?"這組 "+session.size()+" 字全部完成！ 🎉":"這個字完成了！ 🎉");
+        };
+        handler.postDelayed(advanceTask,delay);
+    }
     private void setOverview(boolean visible){overviewVisible=visible;overviewPanel.setVisibility(visible?View.VISIBLE:View.GONE);overviewButton.setText(visible?"隱藏筆順":"全筆順");getPreferences(0).edit().putBoolean("overview",visible).apply();}
     private void updateCharacterInfo(int count){
         details.setText("部首："+characterInfo.radical(current)+"　總筆畫："+(count>0?count:"—"));
@@ -93,7 +138,7 @@ public class MainActivity extends Activity {
         otherReadings.setText(readings.size()>1?"其他讀音："+String.join("　／　",readings.subList(1,readings.size())):"");
         if(readings.isEmpty()){otherReadings.setText("注音：尚未收錄");otherReadings.setVisibility(View.VISIBLE);}
     }
-    private void load(String character){stopSpeech();int token=++request;current=character;title.setText(character);board.clear();updateCharacterInfo(0);overview.setData(Collections.emptyList(),new String[0]);overviewScroll.scrollTo(0,0);progress.setText("載入筆順…");status.setText("第一次查字需要網路，之後可離線練習");
+    private void load(String character){cancelAdvance();stopSpeech();int token=++request;current=character;title.setText(character);board.clear();updateCharacterInfo(0);overview.setData(Collections.emptyList(),new String[0]);overviewScroll.scrollTo(0,0);progress.setText(wordProgress()+"載入筆順…");status.setText("第一次查字需要網路，之後可離線練習");
         worker.submit(()->{try{String json;File file=new File(getFilesDir(),Integer.toHexString(character.codePointAt(0))+".json");
             if(file.exists())json=new String(java.nio.file.Files.readAllBytes(file.toPath()),StandardCharsets.UTF_8);
             else {try(InputStream bundled=getAssets().open("data/"+character+".json")){json=new String(read(bundled),StandardCharsets.UTF_8);}catch(IOException missing){
@@ -105,17 +150,17 @@ public class MainActivity extends Activity {
     }
     private byte[] read(InputStream in)throws IOException{ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] b=new byte[8192];int n;while((n=in.read(b))!=-1){out.write(b,0,n);if(out.size()>2000000)throw new IOException("資料過大");}return out.toByteArray();}
     private void favorite(){Set<String> set=new TreeSet<>(getPreferences(0).getStringSet("favorites",Collections.emptySet()));boolean removed=!set.add(current);if(removed)set.remove(current);getPreferences(0).edit().putStringSet("favorites",set).apply();Toast.makeText(this,removed?"已取消收藏":"已收藏「"+current+"」",0).show();}
-    private void favorites(){String[] items=new TreeSet<>(getPreferences(0).getStringSet("favorites",Collections.emptySet())).toArray(new String[0]);new AlertDialog.Builder(this).setTitle(items.length==0?"尚未收藏國字":"我的收藏").setItems(items,(d,n)->{input.setText(items[n]);load(items[n]);}).setPositiveButton("關閉",null).show();}
+    private void favorites(){String[] items=new TreeSet<>(getPreferences(0).getStringSet("favorites",Collections.emptySet())).toArray(new String[0]);new AlertDialog.Builder(this).setTitle(items.length==0?"尚未收藏國字":"我的收藏").setItems(items,(d,n)->{input.setText(items[n]);session.start(items[n]);load(session.current());}).setPositiveButton("關閉",null).show();}
     private void about(){
-        String instructions="從紫色圓點起筆，依箭頭方向一筆一畫描寫。寫對後會朗讀該筆名稱；寫完整個字後會自動朗讀國字。示範時也有逐筆語音。按「全筆順」可顯示或隱藏累積筆順字形。";
+        String instructions="可一次輸入最多20個國字，從第一個字依序練習。寫對後會朗讀筆畫名稱；完成一字會朗讀國字，再自動切到下一字。整組完成後停在最後一字。示範只示範目前國字，不會跳字；重寫會重練目前國字。第一排「全筆順」可顯示或隱藏下方橫向筆順。";
         String metadata="注音與部首參考 cnchar / cnchar-trad / cnchar-radical 3.2.6（MIT 授權），拼音轉換為注音。大字旁顯示主要讀音，其他讀音列於上方。部分讀音與臺灣用法可能不同，也可能缺少異讀，請使用教育部入口查核。語音依手機中文引擎的預設讀音，不保證與多音字的首個注音相同。總筆畫數以目前練習字形實際筆數為準。";
         String labels="筆畫名稱參考 cnchar 3.2.6，另有對齊本 App 字形的人工修訂。名稱缺少或筆畫數不同時會改唸「第幾筆」，尚未逐字驗證兩份資料的筆順完全相同。";
         String license="字形及「陳」字圖示：Hanzi Writer Data 2.0.1／Make Me a Hanzi，原始字型：文鼎科技，依 Arphic Public License 使用。完整授權附於 assets/licenses。這份開放資料並非教育部標準字形資料庫。";
         String privacy="不會將手寫軌跡上傳；查字時會向 jsDelivr 下載該字資料。已下載資料與收藏保存在本機。";
         new AlertDialog.Builder(this).setTitle("資料來源與使用說明").setMessage(String.join("\n\n",instructions,metadata,labels,license,privacy)).setPositiveButton("知道了",null).show();
     }
-    @Override protected void onSaveInstanceState(Bundle b){b.putString("character",current);b.putBoolean("overview",overviewVisible);super.onSaveInstanceState(b);}
-    @Override protected void onResume(){super.onResume();foreground=true;}
-    @Override protected void onPause(){foreground=false;stopSpeech();super.onPause();}
-    @Override protected void onDestroy(){request++;worker.shutdownNow();if(speech!=null)speech.shutdown();super.onDestroy();}
+    @Override protected void onSaveInstanceState(Bundle b){b.putString("character",current);b.putBoolean("overview",overviewVisible);b.putString("sessionText",session.text());b.putInt("sessionIndex",session.position());b.putString("inputText",input.getText().toString());super.onSaveInstanceState(b);}
+    @Override protected void onResume(){super.onResume();foreground=true;if(session.isComplete()){completionId="complete-"+(++completionSerial);scheduleAdvance(completionId,900);}}
+    @Override protected void onPause(){foreground=false;cancelAdvance();stopSpeech();super.onPause();}
+    @Override protected void onDestroy(){request++;cancelAdvance();handler.removeCallbacksAndMessages(null);worker.shutdownNow();if(speech!=null)speech.shutdown();super.onDestroy();}
 }

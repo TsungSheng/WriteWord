@@ -58,22 +58,22 @@ public class PracticeView extends View {
         float gutter=pronunciation.isEmpty()?0:48*density;
         side=Math.max(0,Math.min(getWidth()-gutter,getHeight())-16*density);
         left=(getWidth()-side-gutter)/2; top=(getHeight()-side)/2;
-        paint.setStyle(Paint.Style.FILL); paint.setColor(Color.WHITE); c.drawRect(left,top,left+side,top+side,paint);
-        paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1); paint.setColor(0xffcfd9d3); c.drawRect(left,top,left+side,top+side,paint);
+        paint.setStyle(Paint.Style.FILL); paint.setColor(AppColors.SURFACE); c.drawRect(left,top,left+side,top+side,paint);
+        paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1); paint.setColor(AppColors.BORDER); c.drawRect(left,top,left+side,top+side,paint);
         paint.setPathEffect(new DashPathEffect(new float[]{12,10},0));
         c.drawLine(left+side/2,top,left+side/2,top+side,paint); c.drawLine(left,top+side/2,left+side,top+side/2,paint); paint.setPathEffect(null);
         c.save(); c.translate(left,top+side*900/1024); c.scale(side/1024,-side/1024);
         for(int i=0;i<strokes.size();i++) {
-            paint.setStyle(i<done?Paint.Style.FILL:Paint.Style.STROKE); paint.setStrokeWidth(2); paint.setColor(i<done?0xff16765b:0xffbac4bd); c.drawPath(strokes.get(i),paint);
+            paint.setStyle(i<done?Paint.Style.FILL:Paint.Style.STROKE); paint.setStrokeWidth(2); paint.setColor(i<done?AppColors.ACCENT:AppColors.OUTLINE); c.drawPath(strokes.get(i),paint);
         }
         if(hint && done<medians.size()) {
-            float[][] p=medians.get(done); paint.setColor(0xff9b62b2); paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(7); paint.setStrokeCap(Paint.Cap.ROUND);
+            float[][] p=medians.get(done); paint.setColor(AppColors.HINT); paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(7); paint.setStrokeCap(Paint.Cap.ROUND);
             Path guide=new Path(); guide.moveTo(p[0][0],p[0][1]); for(int i=1;i<p.length;i++) guide.lineTo(p[i][0],p[i][1]); c.drawPath(guide,paint);
             paint.setStyle(Paint.Style.FILL); c.drawCircle(p[0][0],p[0][1],15,paint);
             int m=Math.max(1,p.length/2); float dx=p[m][0]-p[m-1][0],dy=p[m][1]-p[m-1][1],len=(float)Math.hypot(dx,dy);
             if(len>0) {dx/=len;dy/=len;Path arrow=new Path();arrow.moveTo(p[m][0],p[m][1]);arrow.lineTo(p[m][0]-dx*30-dy*15,p[m][1]-dy*30+dx*15);arrow.lineTo(p[m][0]-dx*30+dy*15,p[m][1]-dy*30-dx*15);arrow.close();c.drawPath(arrow,paint);}
         }
-        if(!gesture.isEmpty()) {paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(18);paint.setColor(0xff294e40);Path p=new Path();p.moveTo(gesture.get(0)[0],gesture.get(0)[1]);for(float[] pt:gesture)p.lineTo(pt[0],pt[1]);c.drawPath(p,paint);}
+        if(!gesture.isEmpty()) {paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(18);paint.setColor(AppColors.TEXT);Path p=new Path();p.moveTo(gesture.get(0)[0],gesture.get(0)[1]);for(float[] pt:gesture)p.lineTo(pt[0],pt[1]);c.drawPath(p,paint);}
         c.restore();
         if(!pronunciation.isEmpty() && side>0){
             String symbols=pronunciation.replaceAll("[ˊˇˋ˙]","");
@@ -81,7 +81,7 @@ public class PracticeView extends View {
             float textSize=Math.min(22*getResources().getDisplayMetrics().scaledDensity,side/5);
             float step=textSize*1.35f,x=left+side+gutter*.43f;
             float first=top+side/2-(symbols.length()-1)*step/2;
-            paint.setStyle(Paint.Style.FILL);paint.setTextAlign(Paint.Align.CENTER);paint.setTextSize(textSize);paint.setColor(0xff16765b);
+            paint.setStyle(Paint.Style.FILL);paint.setTextAlign(Paint.Align.CENTER);paint.setTextSize(textSize);paint.setColor(AppColors.ACCENT);
             float baselineOffset=-(paint.ascent()+paint.descent())/2;
             for(int i=0;i<symbols.length();i++)c.drawText(symbols.substring(i,i+1),x,first+i*step+baselineOffset,paint);
             if(!tone.isEmpty())c.drawText(tone,tone.equals("˙")?x:x+textSize*.8f,tone.equals("˙")?first-step*.7f+baselineOffset:top+side/2+baselineOffset,paint);
