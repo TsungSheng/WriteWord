@@ -25,7 +25,13 @@ public final class PracticeSession {
     public int position(){return index;}
     public int size(){return characters.size();}
     public boolean isComplete(){return complete;}
+    public boolean hasPrevious(){return index>0;}
     public boolean hasNext(){return index+1<characters.size();}
+    public boolean move(int offset){
+        int target=index+offset;
+        if(offset==0||target<0||target>=characters.size())return false;
+        index=target;complete=false;return true;
+    }
     public boolean completeCurrent(){if(complete)return false;complete=true;return true;}
     public void restartCurrent(){complete=false;}
     public boolean advance(){if(!complete||!hasNext())return false;index++;complete=false;return true;}

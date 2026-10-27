@@ -59,6 +59,10 @@ public class MainActivity extends Activity {
         names=new StrokeNames(this);characterInfo=new CharacterInfo(this);
         LinearLayout practiceArea=new LinearLayout(this);practiceArea.setOrientation(LinearLayout.VERTICAL);
         board=new PracticeView(this);practiceArea.addView(board,new LinearLayout.LayoutParams(-1,0,1));
+        board.navigationListener=new PracticeView.NavigationListener(){
+            @Override public void previous(){jumpCharacter(-1);}
+            @Override public void next(){jumpCharacter(1);}
+        };
         overviewPanel=new LinearLayout(this);overviewPanel.setGravity(Gravity.CENTER_VERTICAL);
         overviewScroll=new HorizontalScrollView(this);overviewScroll.setFillViewport(true);
         overview=new StrokeOverviewView(this);overview.setContentDescription("全筆順累積字形，由左至右顯示，左右滑動查看");overviewScroll.addView(overview,new HorizontalScrollView.LayoutParams(-2,-1));
@@ -112,6 +116,7 @@ public class MainActivity extends Activity {
     }
     private void cancelAdvance(){if(advanceTask!=null)handler.removeCallbacks(advanceTask);advanceTask=null;completionId=null;}
     private void restartCurrent(){cancelAdvance();stopSpeech();session.restartCurrent();}
+    private void jumpCharacter(int direction){if(session.move(direction))load(session.current());}
     private void completeCharacter(){
         if(!session.completeCurrent())return;
         completionId="complete-"+(++completionSerial);
@@ -132,6 +137,7 @@ public class MainActivity extends Activity {
     }
     private void setOverview(boolean visible){overviewVisible=visible;overviewPanel.setVisibility(visible?View.VISIBLE:View.GONE);overviewButton.setText(visible?"隱藏筆順":"全筆順");getPreferences(0).edit().putBoolean("overview",visible).apply();}
     private void updateCharacterInfo(int count){
+        board.setNavigationState(session.size()>1,session.hasPrevious(),session.hasNext());
         details.setText("部首："+characterInfo.radical(current)+"　總筆畫："+(count>0?count:"—"));
         List<String> readings=characterInfo.readings(current);board.setPronunciation(readings.isEmpty()?"":readings.get(0));
         otherReadings.setVisibility(readings.size()>1?View.VISIBLE:View.GONE);
@@ -152,7 +158,7 @@ public class MainActivity extends Activity {
     private void favorite(){Set<String> set=new TreeSet<>(getPreferences(0).getStringSet("favorites",Collections.emptySet()));boolean removed=!set.add(current);if(removed)set.remove(current);getPreferences(0).edit().putStringSet("favorites",set).apply();Toast.makeText(this,removed?"已取消收藏":"已收藏「"+current+"」",0).show();}
     private void favorites(){String[] items=new TreeSet<>(getPreferences(0).getStringSet("favorites",Collections.emptySet())).toArray(new String[0]);new AlertDialog.Builder(this).setTitle(items.length==0?"尚未收藏國字":"我的收藏").setItems(items,(d,n)->{input.setText(items[n]);session.start(items[n]);load(session.current());}).setPositiveButton("關閉",null).show();}
     private void about(){
-        String instructions="可一次輸入最多20個國字，從第一個字依序練習。寫對後會朗讀筆畫名稱；完成一字會朗讀國字，再自動切到下一字。整組完成後停在最後一字。示範只示範目前國字，不會跳字；重寫會重練目前國字。第一排「全筆順」可顯示或隱藏下方橫向筆順。";
+        String instructions="可一次輸入最多20個國字，從第一個字依序練習。多字時可按注音上方「上一字」或下方「下一字」跳字；跳字後從所選字第一筆重練，首尾不循環。寫對後會朗讀筆畫名稱；完成一字會朗讀國字，再自動切到下一字。整組完成後停在最後一字。示範只示範目前國字，不會跳字；重寫會重練目前國字。第一排「全筆順」可顯示或隱藏下方橫向筆順。";
         String metadata="注音與部首參考 cnchar / cnchar-trad / cnchar-radical 3.2.6（MIT 授權），拼音轉換為注音。大字旁顯示主要讀音，其他讀音列於上方。部分讀音與臺灣用法可能不同，也可能缺少異讀，請使用教育部入口查核。語音依手機中文引擎的預設讀音，不保證與多音字的首個注音相同。總筆畫數以目前練習字形實際筆數為準。";
         String labels="筆畫名稱參考 cnchar 3.2.6，另有對齊本 App 字形的人工修訂。名稱缺少或筆畫數不同時會改唸「第幾筆」，尚未逐字驗證兩份資料的筆順完全相同。";
         String license="字形及「陳」字圖示：Hanzi Writer Data 2.0.1／Make Me a Hanzi，原始字型：文鼎科技，依 Arphic Public License 使用。完整授權附於 assets/licenses。這份開放資料並非教育部標準字形資料庫。";

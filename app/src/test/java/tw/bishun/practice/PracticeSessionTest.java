@@ -41,4 +41,21 @@ public class PracticeSessionTest {
     @Test public void respectsTwentyCharacterLimitWithoutDeduplication(){
         PracticeSession session=new PracticeSession();session.start("人".repeat(25));assertEquals(20,session.size());
     }
+    @Test public void manualNavigationDoesNotRequireCompletingCurrentCharacter(){
+        PracticeSession session=new PracticeSession();session.start("人人大");
+        assertFalse(session.hasPrevious());assertTrue(session.move(1));assertEquals(1,session.position());assertEquals("人",session.current());
+        assertTrue(session.move(1));assertEquals("大",session.current());assertTrue(session.hasPrevious());assertFalse(session.hasNext());
+        assertTrue(session.move(-1));assertEquals("人",session.current());assertEquals(1,session.position());
+    }
+    @Test public void manualJumpClearsCompletionAndBlocksStaleAutoAdvance(){
+        PracticeSession session=new PracticeSession();session.start("學習中文");session.completeCurrent();
+        assertTrue(session.move(1));assertEquals("習",session.current());assertFalse(session.isComplete());assertFalse(session.advance());
+        session.completeCurrent();assertTrue(session.move(-1));assertEquals("學",session.current());assertFalse(session.isComplete());
+    }
+    @Test public void navigationDoesNotWrapAtEitherBoundary(){
+        PracticeSession session=new PracticeSession();session.start("學習");
+        assertFalse(session.move(-1));assertEquals("學",session.current());session.move(1);session.completeCurrent();
+        assertFalse(session.move(1));assertEquals("習",session.current());assertTrue(session.isComplete());
+        session.start("永");assertFalse(session.hasPrevious());assertFalse(session.hasNext());assertFalse(session.move(-1));assertFalse(session.move(1));
+    }
 }

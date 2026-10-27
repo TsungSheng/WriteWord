@@ -1,26 +1,77 @@
 package tw.bishun.practice;
 
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.graphics.*;
 import android.view.*;
+import android.widget.Button;
+import android.widget.FrameLayout;
 import androidx.core.graphics.PathParser;
 import org.json.*;
 import java.util.*;
 
-public class PracticeView extends View {
+public class PracticeView extends FrameLayout {
     private final Paint paint=new Paint(3);
     private final ArrayList<Path> strokes=new ArrayList<>();
     private final ArrayList<float[][]> medians=new ArrayList<>();
     private final ArrayList<float[]> gesture=new ArrayList<>();
     private String[] strokeNames=new String[0];
     private String pronunciation="";
+    private final Button previousButton,nextButton;
+    private boolean navigationVisible;
+    public interface NavigationListener { void previous(); void next(); }
+    public NavigationListener navigationListener;
     public interface StrokeListener { void onStroke(int number,String name,boolean demonstration); }
     public StrokeListener strokeListener;
     private int done=0, generation=0; private boolean hint=true, demo=false;
-    private float side, left, top;
+    private float side, left, top, gutter;
     public interface Listener { void update(int done,int total,String message); }
     public Listener listener;
-    public PracticeView(Context c) { super(c); setContentDescription("國字筆順練習區，沿著提示逐筆書寫"); setLayerType(View.LAYER_TYPE_SOFTWARE,null); }
+    public PracticeView(Context c) {
+        super(c);setWillNotDraw(false);setContentDescription("國字筆順練習區，沿著提示逐筆書寫");setLayerType(View.LAYER_TYPE_SOFTWARE,null);
+        previousButton=navigationButton(c,"▲\n上一字","上一個練習字");nextButton=navigationButton(c,"下一字\n▼","下一個練習字");
+        previousButton.setOnClickListener(v->{if(navigationListener!=null)navigationListener.previous();});
+        nextButton.setOnClickListener(v->{if(navigationListener!=null)navigationListener.next();});
+        addView(previousButton,new FrameLayout.LayoutParams(dp(48),dp(48)));addView(nextButton,new FrameLayout.LayoutParams(dp(48),dp(48)));
+        previousButton.setVisibility(GONE);nextButton.setVisibility(GONE);
+    }
+    private int dp(float value){return Math.round(value*getResources().getDisplayMetrics().density);}
+    private Button navigationButton(Context c,String label,String description){
+        Button b=new Button(c);b.setText(label);b.setTextSize(11);b.setAllCaps(false);b.setGravity(Gravity.CENTER);b.setPadding(0,0,0,0);b.setMinWidth(0);b.setMinimumWidth(0);b.setMinHeight(0);b.setMinimumHeight(0);
+        b.setTextColor(new ColorStateList(new int[][]{new int[]{-android.R.attr.state_enabled},new int[]{}},new int[]{AppColors.MUTED,AppColors.ACCENT}));
+        b.setBackgroundTintList(new ColorStateList(new int[][]{new int[]{android.R.attr.state_pressed},new int[]{}},new int[]{AppColors.SELECTED,AppColors.BUTTON}));
+        b.setContentDescription(description);b.setTooltipText(description);return b;
+    }
+    public void setNavigationState(boolean visible,boolean canPrevious,boolean canNext){
+        navigationVisible=visible;previousButton.setVisibility(visible?VISIBLE:GONE);nextButton.setVisibility(visible?VISIBLE:GONE);
+        previousButton.setEnabled(canPrevious);nextButton.setEnabled(canNext);previousButton.setAlpha(canPrevious?1f:.4f);nextButton.setAlpha(canNext?1f:.4f);requestLayout();invalidate();
+    }
+    private void calculateGeometry(){
+        gutter=pronunciation.isEmpty()&&!navigationVisible?0:dp(48);
+        side=Math.max(0,Math.min(getWidth()-gutter,getHeight())-dp(16));left=(getWidth()-side-gutter)/2;top=(getHeight()-side)/2;
+    }
+    private String pronunciationSymbols(){return pronunciation.replaceAll("[ˊˇˋ˙]","");}
+    private float pronunciationSize(){
+        float size=Math.min(22*getResources().getDisplayMetrics().scaledDensity,side/5);
+        if(navigationVisible){
+            float slots=Math.max(1,pronunciationSymbols().length())*1.35f+(pronunciation.contains("˙")?.7f:0);
+            size=Math.min(size,Math.max(0,getHeight()-dp(128))/slots);
+        }
+        return size;
+    }
+    @Override protected void onLayout(boolean changed,int l,int t,int r,int b){
+        calculateGeometry();if(!navigationVisible)return;
+        float textSize=pronunciationSize(),step=textSize*1.35f;
+        int symbolCount=Math.max(1,pronunciationSymbols().length());
+        float first=top+side/2-(symbolCount-1)*step/2;
+        float textTop=first-textSize/2-(pronunciation.contains("˙")?step*.7f:0);
+        float textBottom=first+(symbolCount-1)*step+textSize/2;
+        int x=Math.round(left+side+(gutter-dp(48))/2),height=dp(48);
+        int previousTop=Math.max(dp(4),Math.round(textTop-dp(12)-height));
+        int nextTop=Math.min(getHeight()-height-dp(4),Math.round(textBottom+dp(12)));
+        previousButton.layout(x,previousTop,x+dp(48),previousTop+height);
+        nextButton.layout(x,nextTop,x+dp(48),nextTop+height);
+    }
     public void load(JSONObject data,String[] names) throws JSONException {
         reset(); strokes.clear(); medians.clear();
         JSONArray paths=data.getJSONArray("strokes"), points=data.getJSONArray("medians");
@@ -37,7 +88,7 @@ public class PracticeView extends View {
     public List<Path> getStrokes(){return Collections.unmodifiableList(strokes);}
     public String[] getStrokeNames(){return strokeNames.clone();}
     public int getStrokeCount(){return strokes.size();}
-    public void setPronunciation(String value){pronunciation=value==null?"":value;invalidate();}
+    public void setPronunciation(String value){pronunciation=value==null?"":value;requestLayout();invalidate();}
     public void clear() { reset(); strokes.clear(); medians.clear(); strokeNames=new String[0]; invalidate(); }
     public void reset() { generation++; demo=false; done=0; gesture.clear(); report("重新開始，慢慢寫就好"); invalidate(); }
     public void toggleHint() { hint=!hint; invalidate(); }
@@ -54,10 +105,7 @@ public class PracticeView extends View {
     }
     @Override protected void onDraw(Canvas c) {
         super.onDraw(c);
-        float density=getResources().getDisplayMetrics().density;
-        float gutter=pronunciation.isEmpty()?0:48*density;
-        side=Math.max(0,Math.min(getWidth()-gutter,getHeight())-16*density);
-        left=(getWidth()-side-gutter)/2; top=(getHeight()-side)/2;
+        calculateGeometry();
         paint.setStyle(Paint.Style.FILL); paint.setColor(AppColors.SURFACE); c.drawRect(left,top,left+side,top+side,paint);
         paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1); paint.setColor(AppColors.BORDER); c.drawRect(left,top,left+side,top+side,paint);
         paint.setPathEffect(new DashPathEffect(new float[]{12,10},0));
@@ -76,9 +124,9 @@ public class PracticeView extends View {
         if(!gesture.isEmpty()) {paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(18);paint.setColor(AppColors.TEXT);Path p=new Path();p.moveTo(gesture.get(0)[0],gesture.get(0)[1]);for(float[] pt:gesture)p.lineTo(pt[0],pt[1]);c.drawPath(p,paint);}
         c.restore();
         if(!pronunciation.isEmpty() && side>0){
-            String symbols=pronunciation.replaceAll("[ˊˇˋ˙]","");
+            String symbols=pronunciationSymbols();
             String tone=pronunciation.contains("ˊ")?"ˊ":pronunciation.contains("ˇ")?"ˇ":pronunciation.contains("ˋ")?"ˋ":pronunciation.contains("˙")?"˙":"";
-            float textSize=Math.min(22*getResources().getDisplayMetrics().scaledDensity,side/5);
+            float textSize=pronunciationSize();
             float step=textSize*1.35f,x=left+side+gutter*.43f;
             float first=top+side/2-(symbols.length()-1)*step/2;
             paint.setStyle(Paint.Style.FILL);paint.setTextAlign(Paint.Align.CENTER);paint.setTextSize(textSize);paint.setColor(AppColors.ACCENT);
@@ -90,6 +138,7 @@ public class PracticeView extends View {
     }
     private float[] point(MotionEvent e) {return new float[]{(e.getX()-left)*1024/side,900-(e.getY()-top)*1024/side};}
     @Override public boolean onTouchEvent(MotionEvent e) {
+        if(e.getActionMasked()==MotionEvent.ACTION_DOWN && (e.getX()<left||e.getX()>left+side||e.getY()<top||e.getY()>top+side))return false;
         if(demo || done>=medians.size() || side<=0) return false;
         switch(e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN: gesture.clear();gesture.add(point(e));getParent().requestDisallowInterceptTouchEvent(true);break;
